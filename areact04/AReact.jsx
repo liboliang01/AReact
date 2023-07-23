@@ -27,7 +27,7 @@ const isProperty = (key) => key !== "children";
 // 下一个需要处理的额fiber节点
 let workInProgress = null;
 // fiber root
-let workInprogressRoot = null;
+let workInProgressRoot = null;
 
 class AReactDomRoot {
   // fiber根节点
@@ -49,8 +49,8 @@ class AReactDomRoot {
         },
       },
     };
-    workInprogressRoot = this._internalRoot;
-    workInProgress = workInprogressRoot.current.alternate;
+    workInProgressRoot = this._internalRoot;
+    workInProgress = workInProgressRoot.current.alternate;
     window.requestIdleCallback(workLoop);
   }
 }
@@ -129,8 +129,8 @@ function getNextFiber(fiber) {
     } else {
       nextFiber = nextFiber.return;
     }
-    return null;
   }
+  return null;
 }
 
 function createRoot(container) {
