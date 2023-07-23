@@ -5,7 +5,7 @@ function createElement(type, props, ...children) {
     type,
     props: {
       ...props,
-      children: children.map((child) => {
+      children: children.flat().map((child) => {
         return typeof child !== "object" ? createTextElement(child) : child;
       }),
     },
@@ -51,30 +51,48 @@ class AReactDomRoot {
     };
     workInprogressRoot = this._internalRoot;
     workInProgress = workInprogressRoot.current.alternate;
-    window.requestIdleCallback(() => {
-      workLoop();
-    });
+    window.requestIdleCallback(workLoop);
+  }
+}
+
+// 只要workInProgress存在，不断地执行下一个节点
+function workLoop() {
+  while (workInProgress) {
+    workInProgress = performUnitOfWork(workInProgress);
   }
 }
 
 function performUnitOfWork(fiber) {
   // 处理当前fiber：创建dom，设置props，插入当前dom到parent
   // 如果当前fiber不存在stateNode ，则创建
-  if (!fiber.stateNode) {
-    fiber.stateNode =
-      fiber.type === "HostText"
-        ? document.createTextNode("")
-        : document.createElement(fiber.type);
-    Object.keys(fiber.props)
-      .filter(isProperty)
-      .forEach((key) => {
-        fiber.stateNode[key] = fiber.props[key];
-      });
+
+  // 函数组件需要特殊处理，其children是函数执行的结果
+  const isFunctionComponent = fiber.type instanceof Function;
+  if (isFunctionComponent) {
+    fiber.props.children = [fiber.type(fiber.props)];
+  } else {
+    if (!fiber.stateNode) {
+      fiber.stateNode =
+        fiber.type === "HostText"
+          ? document.createTextNode("")
+          : document.createElement(fiber.type);
+      Object.keys(fiber.props)
+        .filter(isProperty)
+        .forEach((key) => {
+          fiber.stateNode[key] = fiber.props[key];
+        });
+    }
+
+    if (fiber.return) {
+      // 向上查找，知道有一个节点存在stateNode
+      let domParentFiber = fiber.return;
+      while (!domParentFiber.stateNode) {
+        domParentFiber = domParentFiber.return;
+      }
+      domParentFiber.stateNode.appendChild(fiber.stateNode);
+    }
   }
 
-  if (fiber.return) {
-    fiber.return.stateNode.appendChild(fiber.stateNode);
-  }
   // 初始化children fiber
   // 上一个兄弟节点
   let preSibling = null;
@@ -112,13 +130,6 @@ function getNextFiber(fiber) {
       nextFiber = nextFiber.return;
     }
     return null;
-  }
-}
-
-// 只要workInProgress存在，不断地执行下一个节点
-function workLoop() {
-  while (workInProgress) {
-    workInProgress = performUnitOfWork(workInProgress);
   }
 }
 
